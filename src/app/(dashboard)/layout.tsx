@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Activity, Home, Pizza, Scale, FileText, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Logo } from '@/components/ui'
@@ -21,6 +21,12 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const router = useRouter()
+
+  const handleSignOut = async () => {
+    await fetch('/sign-out')
+    router.push('/sign-in')
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -38,8 +44,8 @@ export default function DashboardLayout({
                 <span className="hidden sm:inline">Profile</span>
               </Link>
             </Button>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/sign-out">Sign out</Link>
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              Sign out
             </Button>
           </div>
         </div>
