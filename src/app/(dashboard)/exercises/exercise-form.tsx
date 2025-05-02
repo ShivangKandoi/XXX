@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Database } from '@/types/supabase'
 import { analyzeExercise } from '@/lib/gemini'
+import { getCurrentDateTime } from '@/lib/utils'
 
 const formSchema = z.object({
   name: z.string().min(2, 'Exercise name must be at least 2 characters'),
@@ -91,6 +92,7 @@ export function ExerciseForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       setIsLoading(true)
+      const now = getCurrentDateTime()
       const { error } = await supabase
         .from('exercises')
         .insert({
@@ -99,6 +101,9 @@ export function ExerciseForm() {
           description: values.description,
           calories_burnt: Number(values.calories_burnt),
           duration: Number(values.duration),
+          date: now,
+          created_at: now,
+          updated_at: now
         })
 
       if (error) {

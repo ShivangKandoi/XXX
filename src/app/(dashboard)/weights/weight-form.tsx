@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Database } from '@/types/supabase'
+import { getCurrentDateTime } from '@/lib/utils'
 
 const formSchema = z.object({
   weight: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
@@ -34,11 +35,15 @@ export function WeightForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       setIsLoading(true)
+      const now = getCurrentDateTime()
       const { error } = await supabase
         .from('weights')
         .insert({
           user_id: (await supabase.auth.getUser()).data.user?.id,
           weight: Number(values.weight),
+          date: now,
+          created_at: now,
+          updated_at: now
         })
 
       if (error) {
@@ -72,7 +77,7 @@ export function WeightForm() {
             <FormItem>
               <FormLabel>Weight (kg)</FormLabel>
               <FormControl>
-                <Input type="number" step="0.1" placeholder="Enter your weight" {...field} />
+                <Input type="number" placeholder="Enter your weight" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

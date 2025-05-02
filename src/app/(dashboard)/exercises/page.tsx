@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Database } from '@/types/supabase'
 import { format } from 'date-fns'
 import { Activity, Clock, Flame } from 'lucide-react'
+import { getLocalStartOfDay, getLocalEndOfDay } from '@/lib/utils'
 
 export default async function ExercisesPage() {
   const supabase = createServerComponentClient({ cookies })
@@ -20,6 +21,8 @@ export default async function ExercisesPage() {
     .from('exercises')
     .select('*')
     .eq('user_id', user.id)
+    .gte('date', getLocalStartOfDay())
+    .lte('date', getLocalEndOfDay())
     .order('date', { ascending: false })
 
   return (

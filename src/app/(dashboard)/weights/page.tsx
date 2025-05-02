@@ -6,6 +6,7 @@ import { WeightForm } from './weight-form'
 import { Database } from '@/types/supabase'
 import { format } from 'date-fns'
 import { Scale, TrendingUp } from 'lucide-react'
+import { getLocalStartOfDay, getLocalEndOfDay } from '@/lib/utils'
 
 export default async function WeightsPage() {
   const supabase = createServerComponentClient({ cookies })
@@ -20,6 +21,8 @@ export default async function WeightsPage() {
     .from('weights')
     .select('*')
     .eq('user_id', user.id)
+    .gte('date', getLocalStartOfDay())
+    .lte('date', getLocalEndOfDay())
     .order('date', { ascending: false })
 
   // Calculate weight change if there are at least 2 entries

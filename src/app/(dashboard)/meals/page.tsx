@@ -6,6 +6,7 @@ import { MealForm } from './meal-form'
 import { Database } from '@/types/supabase'
 import { format } from 'date-fns'
 import { Utensils } from 'lucide-react'
+import { getLocalStartOfDay, getLocalEndOfDay } from '@/lib/utils'
 
 export default async function MealsPage() {
   const supabase = createServerComponentClient({ cookies })
@@ -20,7 +21,9 @@ export default async function MealsPage() {
     .from('meals')
     .select('*')
     .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
+    .gte('date', getLocalStartOfDay())
+    .lte('date', getLocalEndOfDay())
+    .order('date', { ascending: false })
 
   return (
     <div className="container max-w-6xl mx-auto py-8 px-4 space-y-8">
