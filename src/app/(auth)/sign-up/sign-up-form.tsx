@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
-import { supabase } from '@/lib/supabase/client'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { Database } from '@/types/supabase'
 
 const formSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -24,6 +25,7 @@ export function SignUpForm() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
+  const supabase = createClientComponentClient<Database>()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -50,34 +52,17 @@ export function SignUpForm() {
       }
 
       if (data?.user) {
-        // Create initial profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: data.user.id,
-              full_name: null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }
-          ])
-          .select()
-          .single()
-
-        if (profileError) {
-          console.error('Error creating profile:', profileError)
-          // Don't throw - still allow signup to complete
-        }
-
         // If email confirmation is not required, redirect to dashboard
-        router.push('/dashboard')
-      } else {
-        // If email confirmation is required, show message and redirect to sign-in
-        toast({
-          title: 'Success',
-          description: 'Please check your email to verify your account.',
-        })
-        router.push('/sign-in')
+        if (data.session) {
+          router.push('/dashboard')
+        } else {
+          // If email confirmation is required, show message and redirect to sign-in
+          toast({
+            title: 'Success',
+            description: 'Please check your email to verify your account.',
+          })
+          router.push('/sign-in')
+        }
       }
     } catch (error) {
       toast({

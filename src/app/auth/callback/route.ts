@@ -13,14 +13,14 @@ export async function GET(request: Request) {
 
     if (user) {
       // Check if profile exists
-      const { data: profile } = await supabase
+      const { data: profile, error: profileCheckError } = await supabase
         .from('profiles')
         .select()
         .eq('id', user.id)
         .single()
 
-      // If no profile exists, create one
-      if (!profile) {
+      // If no profile exists and there was no error checking, create one
+      if (!profile && !profileCheckError) {
         const { error: profileError } = await supabase
           .from('profiles')
           .insert([
@@ -31,11 +31,11 @@ export async function GET(request: Request) {
               updated_at: new Date().toISOString()
             }
           ])
-          .select()
-          .single()
 
         if (profileError) {
           console.error('Error creating profile in callback:', profileError)
+          // Redirect to error page or show error message
+          return NextResponse.redirect(new URL('/error?message=profile-creation-failed', requestUrl.origin))
         }
       }
     }

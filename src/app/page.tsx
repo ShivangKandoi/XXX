@@ -38,8 +38,21 @@ export default function Home() {
     const playVideo = async () => {
       try {
         if (videoRef.current) {
-          await videoRef.current.play()
-          setIsPlaying(true)
+          // Preload video metadata
+          videoRef.current.preload = 'auto'
+          // Set playback quality
+          if (videoRef.current.getVideoPlaybackQuality) {
+            const quality = videoRef.current.getVideoPlaybackQuality()
+            if (quality.totalVideoFrames > 0) {
+              // Video is loaded and ready to play
+              await videoRef.current.play()
+              setIsPlaying(true)
+            }
+          } else {
+            // Fallback if getVideoPlaybackQuality is not supported
+            await videoRef.current.play()
+            setIsPlaying(true)
+          }
         }
       } catch (error) {
         console.error('Error playing video:', error)
@@ -122,11 +135,15 @@ export default function Home() {
           autoPlay
           muted
           playsInline
+          preload="auto"
           onEnded={handleVideoEnd}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
         >
-          <source src="/intro.mp4" type="video/mp4" />
+          <source 
+            src="/intro.mp4" 
+            type="video/mp4; codecs=avc1.42E01E,mp4a.40.2"
+          />
           Your browser does not support the video tag.
         </video>
       </div>
