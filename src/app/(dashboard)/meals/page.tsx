@@ -8,20 +8,18 @@ import { format } from 'date-fns'
 import { Utensils } from 'lucide-react'
 
 export default async function MealsPage() {
-  const supabase = createServerComponentClient<Database>({ cookies })
+  const supabase = createServerComponentClient({ cookies })
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!session) {
+  if (!user) {
     redirect('/sign-in')
   }
 
   const { data: meals } = await supabase
     .from('meals')
     .select('*')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
   return (

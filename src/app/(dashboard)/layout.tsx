@@ -3,8 +3,9 @@
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Activity, Home, Pizza, Scale, FileText } from 'lucide-react'
+import { Activity, Home, Pizza, Scale, FileText, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Logo } from '@/components/ui'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -26,12 +27,21 @@ export default function DashboardLayout({
       {/* Top Header - Always Visible */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b h-14">
         <div className="h-full max-w-screen-2xl mx-auto px-4 flex items-center justify-between">
-          <div className="flex items-center">
-            <h1 className="font-semibold text-lg">Atena</h1>
+          <Link href="/dashboard" className="flex items-center gap-1 hover:opacity-80 transition-opacity">
+            <Logo className="h-8 w-8" />
+            <h1 className="font-semibold text-lg">Athena</h1>
+          </Link>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/profile" className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                <span className="hidden sm:inline">Profile</span>
+              </Link>
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/sign-out">Sign out</Link>
+            </Button>
           </div>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/sign-out">Sign out</Link>
-          </Button>
         </div>
       </div>
 

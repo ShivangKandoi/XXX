@@ -2,13 +2,12 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 
 let genAI: GoogleGenerativeAI | null = null
 
-console.log('GEMINI_API_KEY', process.env.NEXT_PUBLIC_GEMINI_API_KEY)
 try {
   if (process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
     genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY)
   }
 } catch (error) {
-  console.warn('Failed to initialize Gemini AI:', error)
+  console.warn('Failed to initialize Gemini AI')
 }
 
 function cleanJsonResponse(text: string): string {

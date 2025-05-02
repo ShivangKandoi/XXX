@@ -8,20 +8,18 @@ import { format } from 'date-fns'
 import { Scale, TrendingUp } from 'lucide-react'
 
 export default async function WeightsPage() {
-  const supabase = createServerComponentClient<Database>({ cookies })
+  const supabase = createServerComponentClient({ cookies })
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!session) {
+  if (!user) {
     redirect('/sign-in')
   }
 
   const { data: weights } = await supabase
     .from('weights')
     .select('*')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .order('date', { ascending: false })
 
   // Calculate weight change if there are at least 2 entries

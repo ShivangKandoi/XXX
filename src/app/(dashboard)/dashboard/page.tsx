@@ -7,10 +7,11 @@ import { ArrowRight, Activity, Utensils, Scale, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { Suspense } from 'react'
+import { Database } from '@/types/supabase'
 
 // Separate component for stats to enable concurrent rendering
 async function StatsCards() {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerComponentClient<Database>({ cookies })
   
   // Get today's data
   const today = new Date()
@@ -111,7 +112,7 @@ async function StatsCards() {
 
 // Separate component for recent activity
 async function RecentActivity() {
-  const supabase = createServerComponentClient({ cookies })
+  const supabase = createServerComponentClient<Database>({ cookies })
   
   const today = new Date()
   const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
@@ -179,18 +180,29 @@ async function RecentActivity() {
 }
 
 export default async function DashboardPage() {
-  const supabase = createServerComponentClient({ cookies })
-  const { data: { session } } = await supabase.auth.getSession()
+  const supabase = createServerComponentClient<Database>({ cookies })
+  
+  // Use getUser() instead of getSession() for security
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-  if (!session) {
+  if (!user || userError) {
     redirect('/sign-in')
   }
+
+  // Fetch user profile for name
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', user.id)
+    .single()
+
+  const userName = profile?.full_name || 'back'
 
   return (
     <div className="px-4 py-6 space-y-6">
       {/* Welcome Section */}
       <div className="space-y-1">
-        <h2 className="text-2xl font-bold tracking-tight">Welcome back!</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Welcome {userName}!</h2>
         <p className="text-sm text-muted-foreground">
           Here's an overview of your fitness journey today.
         </p>

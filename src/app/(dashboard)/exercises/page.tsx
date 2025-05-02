@@ -8,17 +8,18 @@ import { format } from 'date-fns'
 import { Activity, Clock, Flame } from 'lucide-react'
 
 export default async function ExercisesPage() {
-  const supabase = createServerComponentClient<Database>({ cookies })
-  const { data: { session } } = await supabase.auth.getSession()
+  const supabase = createServerComponentClient({ cookies })
 
-  if (!session) {
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
     redirect('/sign-in')
   }
 
   const { data: exercises } = await supabase
     .from('exercises')
     .select('*')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .order('date', { ascending: false })
 
   return (

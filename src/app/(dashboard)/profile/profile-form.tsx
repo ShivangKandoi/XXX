@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
@@ -14,15 +14,27 @@ import { Database } from '@/types/supabase'
 
 const formSchema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
-  height: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
-    message: 'Height must be a positive number',
-  }),
-  target_weight: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
-    message: 'Target weight must be a positive number',
-  }),
+  height: z.string().refine((val) => {
+    if (!val) return true // Allow empty string
+    const num = parseFloat(val)
+    return !isNaN(num) && num > 0
+  }, { message: 'Height must be a positive number' }),
+  target_weight: z.string().refine((val) => {
+    if (!val) return true // Allow empty string
+    const num = parseFloat(val)
+    return !isNaN(num) && num > 0
+  }, { message: 'Target weight must be a positive number' }),
 })
 
-export function ProfileForm() {
+type ProfileFormProps = {
+  initialData?: {
+    full_name: string | null
+    height: number | null
+    target_weight: number | null
+  }
+}
+
+export function ProfileForm({ initialData }: ProfileFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
@@ -37,16 +49,38 @@ export function ProfileForm() {
     },
   })
 
+  // Set initial form values when data is available
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        full_name: initialData.full_name || '',
+        height: initialData.height?.toString() || '',
+        target_weight: initialData.target_weight?.toString() || '',
+      })
+    }
+  }, [form, initialData])
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       setIsLoading(true)
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      
+      if (userError || !user) {
+        throw new Error('Could not get user')
+      }
+
+      // Convert string values to numbers, null if empty
+      const height = values.height ? parseFloat(values.height) : null
+      const targetWeight = values.target_weight ? parseFloat(values.target_weight) : null
+
       const { error } = await supabase
         .from('profiles')
         .upsert({
-          id: (await supabase.auth.getUser()).data.user?.id,
-          full_name: values.full_name,
-          height: Number(values.height),
-          target_weight: Number(values.target_weight),
+          id: user.id,
+          full_name: values.full_name || null,
+          height,
+          target_weight: targetWeight,
+          updated_at: new Date().toISOString()
         })
 
       if (error) {
@@ -59,6 +93,7 @@ export function ProfileForm() {
       })
       router.refresh()
     } catch (error) {
+      console.error('Profile update error:', error)
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -92,7 +127,13 @@ export function ProfileForm() {
             <FormItem>
               <FormLabel>Height (cm)</FormLabel>
               <FormControl>
-                <Input type="number" placeholder="Enter your height" {...field} />
+                <Input 
+                  type="number" 
+                  step="0.1"
+                  placeholder="Enter your height" 
+                  {...field} 
+                  value={field.value || ''} 
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -105,7 +146,13 @@ export function ProfileForm() {
             <FormItem>
               <FormLabel>Target Weight (kg)</FormLabel>
               <FormControl>
-                <Input type="number" placeholder="Enter your target weight" {...field} />
+                <Input 
+                  type="number"
+                  step="0.1" 
+                  placeholder="Enter your target weight" 
+                  {...field}
+                  value={field.value || ''} 
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

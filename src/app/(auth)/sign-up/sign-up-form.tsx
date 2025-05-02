@@ -50,6 +50,25 @@ export function SignUpForm() {
       }
 
       if (data?.user) {
+        // Create initial profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([
+            {
+              id: data.user.id,
+              full_name: null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }
+          ])
+          .select()
+          .single()
+
+        if (profileError) {
+          console.error('Error creating profile:', profileError)
+          // Don't throw - still allow signup to complete
+        }
+
         // If email confirmation is not required, redirect to dashboard
         router.push('/dashboard')
       } else {
