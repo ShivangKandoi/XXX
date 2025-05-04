@@ -131,6 +131,96 @@ export function calculateCaloriesForGoal(tdee: number, goal: 'loss' | 'maintain'
 }
 
 /**
+ * Calculate Body Mass Index (BMI)
+ * BMI = weight(kg) / (height(m) * height(m))
+ */
+export function calculateBMI(weight: number, height: number): number {
+  if (!weight || !height) return 0;
+  
+  // Convert height from cm to m
+  const heightInMeters = height / 100;
+  
+  return weight / (heightInMeters * heightInMeters);
+}
+
+/**
+ * Determine weight goal based on BMI
+ * - Underweight: BMI < 18.5 -> gain weight
+ * - Normal weight: BMI 18.5-24.9 -> maintain weight
+ * - Overweight: BMI 25-29.9 -> lose weight
+ * - Obese: BMI >= 30 -> lose weight (fast)
+ */
+export function determineWeightGoalFromBMI(bmi: number): {
+  goal: 'loss' | 'maintain' | 'gain';
+  rate: 'slow' | 'moderate' | 'fast';
+} {
+  if (bmi < 18.5) {
+    return { goal: 'gain', rate: 'moderate' };
+  } else if (bmi >= 18.5 && bmi < 25) {
+    return { goal: 'maintain', rate: 'moderate' };
+  } else if (bmi >= 25 && bmi < 30) {
+    return { goal: 'loss', rate: 'moderate' };
+  } else {
+    return { goal: 'loss', rate: 'fast' };
+  }
+}
+
+/**
+ * Calculate target calories based on BMI and TDEE
+ * This automatically sets calorie targets based on current BMI
+ */
+export function calculateTargetCaloriesBasedOnBMI(weight: number, height: number, tdee: number): number {
+  const bmi = calculateBMI(weight, height);
+  const { goal, rate } = determineWeightGoalFromBMI(bmi);
+  
+  return calculateCaloriesForGoal(tdee, goal, rate);
+}
+
+/**
+ * Calculate calorie target based on weight loss/gain goals
+ * This takes into account current weight, target weight, and target date to create a personalized plan
+ */
+export function calculateTargetCaloriesForWeightGoal(
+  currentWeight: number,
+  targetWeight: number | null, 
+  targetDate: string | null,
+  tdee: number
+): number {
+  // If no target weight or date, use BMI-based recommendation
+  if (!targetWeight || !targetDate) {
+    return calculateTargetCaloriesBasedOnBMI(currentWeight, 0, tdee);
+  }
+  
+  // Calculate weight difference and days until target
+  const weightDifference = targetWeight - currentWeight; // Negative for weight loss
+  const today = new Date();
+  const targetDay = new Date(targetDate);
+  
+  // If target date is in the past or today, default to BMI-based approach
+  if (targetDay <= today) {
+    return calculateTargetCaloriesBasedOnBMI(currentWeight, 0, tdee);
+  }
+  
+  // Calculate days between now and target date
+  const daysUntilTarget = Math.ceil((targetDay.getTime() - today.getTime()) / (1000 * 3600 * 24));
+  
+  // To lose/gain 1kg, need a deficit/surplus of approx 7700 calories
+  const caloriesPerDay = (weightDifference * 7700) / daysUntilTarget;
+  
+  // Calculate goal calorie target
+  const goalCalories = Math.round(tdee + caloriesPerDay);
+  
+  // Safety limits: Don't go below 1200 calories
+  const minCalories = 1200;
+  
+  if (goalCalories < minCalories) {
+    return minCalories;
+  }
+  
+  return goalCalories;
+}
+
+/**
  * Get estimated weight change based on calorie deficit/surplus
  * 3500 calories = approximately 1 pound (0.45 kg) of fat
  */

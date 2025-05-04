@@ -2,12 +2,16 @@ import {
   calculateBMR, 
   calculateTDEE, 
   calculateNetCalories,
-  estimateWeightChange
+  estimateWeightChange,
+  calculateTargetCaloriesBasedOnBMI,
+  calculateTargetCaloriesForWeightGoal
 } from './calories';
 
 interface UserProfile {
   height: number | null;
   weight: number | null;
+  target_weight: number | null;
+  target_date: string | null;
   age: number | null;
   gender: string | null;
   activity_level: string | null;
@@ -87,16 +91,38 @@ export function generateDailySummary(
   // Calculate BMR and TDEE if we have all the profile data
   let bmr = 0;
   let tdee = 0;
+  let calorieTarget = 0;
   let calorieDeficit = 0;
   let estimatedWeightChange = 0;
+  let daysUntilTarget = 0;
+  let currentWeight = weight?.weight || 0;
   
   if (profile && weight && profile.height && profile.age && profile.gender && profile.activity_level) {
     const calorieRequirements = calculateDailyCalorieRequirements(profile, weight.weight);
     bmr = calorieRequirements.bmr;
     tdee = calorieRequirements.tdee;
     
-    // Calculate calorie deficit/surplus and estimated weight change
-    calorieDeficit = tdee - netCalories;
+    // Check if user has set weight loss/gain goals
+    if (profile.target_weight && profile.target_date) {
+      // Calculate days until target date
+      const today = new Date();
+      const targetDay = new Date(profile.target_date);
+      daysUntilTarget = Math.max(0, Math.ceil((targetDay.getTime() - today.getTime()) / (1000 * 3600 * 24)));
+      
+      // Use weight goal based calculation
+      calorieTarget = calculateTargetCaloriesForWeightGoal(
+        weight.weight, 
+        profile.target_weight, 
+        profile.target_date, 
+        tdee
+      );
+    } else {
+      // Use BMI-based calculation
+      calorieTarget = calculateTargetCaloriesBasedOnBMI(weight.weight, profile.height, tdee);
+    }
+    
+    // Calculate calorie deficit/surplus based on target (not TDEE)
+    calorieDeficit = calorieTarget - netCalories;
     estimatedWeightChange = estimateWeightChange(calorieDeficit, 1); // 1 day
   }
   
@@ -110,8 +136,14 @@ export function generateDailySummary(
     total_exercise_duration: Math.round(totalExerciseDuration),
     bmr: Math.round(bmr),
     tdee: Math.round(tdee),
+    calorie_target: Math.round(calorieTarget),
     calorie_deficit: Math.round(calorieDeficit),
     estimated_daily_weight_change: estimatedWeightChange.toFixed(3),
+    // Include weight goal information if available
+    target_weight: profile?.target_weight || undefined,
+    current_weight: currentWeight || undefined,
+    target_date: profile?.target_date || undefined,
+    days_until_target: daysUntilTarget || undefined
   };
 }
 

@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     full_name TEXT,
     height DECIMAL,
     target_weight DECIMAL,
+    target_date DATE,
     age INTEGER,
     gender TEXT CHECK (gender IN ('male', 'female', 'other')),
     activity_level TEXT CHECK (activity_level IN ('sedentary', 'light', 'moderate', 'active', 'very_active')),
@@ -27,6 +28,10 @@ BEGIN
     
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'activity_level') THEN
         ALTER TABLE profiles ADD COLUMN activity_level TEXT CHECK (activity_level IN ('sedentary', 'light', 'moderate', 'active', 'very_active'));
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'target_date') THEN
+        ALTER TABLE profiles ADD COLUMN target_date DATE;
     END IF;
     
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'exercises' AND column_name = 'description') THEN

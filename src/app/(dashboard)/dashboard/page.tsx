@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { Suspense } from 'react'
 import { Database } from '@/types/supabase'
-import { calculateBMR, calculateTDEE, calculateNetCalories } from '@/lib/calories'
+import { calculateBMR, calculateTDEE, calculateNetCalories, calculateTargetCaloriesBasedOnBMI, calculateTargetCaloriesForWeightGoal } from '@/lib/calories'
 
 // Separate component for stats to enable concurrent rendering
 async function StatsCards() {
@@ -58,12 +58,43 @@ async function StatsCards() {
   // Calculate BMR and TDEE if we have all the necessary data
   let bmr = 0
   let tdee = 0
+  let calorieTarget = 0
   let calorieDeficit = 0
+  let targetWeightMessage = ''
   
   if (profile && profile.height && profile.age && profile.gender && profile.activity_level && todayWeight[0]) {
-    bmr = calculateBMR(todayWeight[0].weight, profile.height, profile.age, profile.gender)
+    const currentWeight = todayWeight[0].weight
+    bmr = calculateBMR(currentWeight, profile.height, profile.age, profile.gender)
     tdee = calculateTDEE(bmr, profile.activity_level)
-    calorieDeficit = tdee - netCalories
+    
+    // Check if user has set weight loss/gain goals
+    if (profile.target_weight && profile.target_date) {
+      // Use weight goal based calculation
+      calorieTarget = calculateTargetCaloriesForWeightGoal(
+        currentWeight, 
+        profile.target_weight, 
+        profile.target_date, 
+        tdee
+      )
+      
+      // Calculate days until target date
+      const today = new Date()
+      const targetDay = new Date(profile.target_date)
+      const daysUntilTarget = Math.ceil((targetDay.getTime() - today.getTime()) / (1000 * 3600 * 24))
+      
+      // Determine if weight loss or gain
+      const isWeightLoss = profile.target_weight < currentWeight
+      
+      // Format message
+      const weightDifference = Math.abs(currentWeight - profile.target_weight).toFixed(1)
+      targetWeightMessage = `${isWeightLoss ? 'Lose' : 'Gain'} ${weightDifference}kg in ${daysUntilTarget} days`
+    } else {
+      // Use BMI-based calculation
+      calorieTarget = calculateTargetCaloriesBasedOnBMI(currentWeight, profile.height, tdee)
+      targetWeightMessage = 'Based on your BMI & activity'
+    }
+    
+    calorieDeficit = calorieTarget - netCalories
   }
 
   return (
@@ -107,14 +138,14 @@ async function StatsCards() {
         </CardContent>
       </Card>
       
-      {tdee > 0 && (
+      {calorieTarget > 0 && (
         <Card className="bg-orange-50 dark:bg-orange-950/20 border-0 hover:bg-orange-100/50 transition-colors">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Daily Calories Target</p>
-                <p className="text-2xl font-bold">{tdee}</p>
-                <p className="text-xs text-muted-foreground">Based on your profile & activity</p>
+                <p className="text-2xl font-bold">{calorieTarget}</p>
+                <p className="text-xs text-muted-foreground">{targetWeightMessage}</p>
               </div>
               <Flame className="h-5 w-5 text-orange-500" />
             </div>

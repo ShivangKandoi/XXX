@@ -25,6 +25,12 @@ const formSchema = z.object({
     const num = parseFloat(val)
     return !isNaN(num) && num > 0
   }, { message: 'Target weight must be a positive number' }),
+  target_date: z.string().refine((val) => {
+    if (!val) return true // Allow empty string
+    const date = new Date(val)
+    const today = new Date()
+    return !isNaN(date.getTime()) && date > today
+  }, { message: 'Target date must be in the future' }),
   age: z.string().refine((val) => {
     if (!val) return true // Allow empty string
     const num = parseInt(val)
@@ -39,6 +45,7 @@ type ProfileFormProps = {
     full_name: string | null
     height: number | null
     target_weight: number | null
+    target_date: string | null
     age: number | null
     gender: string | null
     activity_level: string | null
@@ -57,6 +64,7 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
       full_name: '',
       height: '',
       target_weight: '',
+      target_date: '',
       age: '',
       gender: '',
       activity_level: '',
@@ -70,6 +78,7 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
         full_name: initialData.full_name || '',
         height: initialData.height?.toString() || '',
         target_weight: initialData.target_weight?.toString() || '',
+        target_date: initialData.target_date || '',
         age: initialData.age?.toString() || '',
         gender: initialData.gender || '',
         activity_level: initialData.activity_level || '',
@@ -89,6 +98,7 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
       // Convert string values to numbers, null if empty
       const height = values.height ? parseFloat(values.height) : null
       const targetWeight = values.target_weight ? parseFloat(values.target_weight) : null
+      const targetDate = values.target_date || null
       const age = values.age ? parseInt(values.age) : null
 
       const { error } = await supabase
@@ -98,6 +108,7 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
           full_name: values.full_name || null,
           height,
           target_weight: targetWeight,
+          target_date: targetDate,
           age,
           gender: values.gender || null,
           activity_level: values.activity_level || null,
@@ -176,6 +187,25 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
                 />
               </FormControl>
               <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="target_date"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Target Date</FormLabel>
+              <FormControl>
+                <Input 
+                  type="date"
+                  placeholder="Select target date" 
+                  {...field}
+                  value={field.value || ''} 
+                />
+              </FormControl>
+              <FormMessage />
+              <p className="text-xs text-muted-foreground">When you want to reach your target weight</p>
             </FormItem>
           )}
         />

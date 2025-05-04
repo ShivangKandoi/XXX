@@ -33,8 +33,13 @@ interface DailyReport {
     total_exercise_duration: number
     bmr: number
     tdee: number
+    calorie_target: number
     calorie_deficit: number
     estimated_daily_weight_change: string
+    target_weight?: number
+    current_weight?: number
+    target_date?: string
+    days_until_target?: number
   }
   insights: Insight[]
   recommendations: Recommendation[]
@@ -364,9 +369,9 @@ export default function ReportsPage() {
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm font-medium text-muted-foreground">TDEE</p>
-                              <p className="text-2xl font-bold">{dailyReport.summary.tdee}</p>
-                              <p className="text-xs text-muted-foreground">Daily calorie target</p>
+                              <p className="text-sm font-medium text-muted-foreground">Target Calories</p>
+                              <p className="text-2xl font-bold">{dailyReport.summary.calorie_target}</p>
+                              <p className="text-xs text-muted-foreground">Based on BMI & activity</p>
                             </div>
                             <Target className="h-8 w-8 text-indigo-500/20" />
                           </div>
@@ -378,7 +383,7 @@ export default function ReportsPage() {
                             <div>
                               <p className="text-sm font-medium text-muted-foreground">Calorie Deficit</p>
                               <p className="text-2xl font-bold">{dailyReport.summary.calorie_deficit}</p>
-                              <p className="text-xs text-muted-foreground">TDEE - Net calories</p>
+                              <p className="text-xs text-muted-foreground">Target - Net calories</p>
                             </div>
                             <TrendingDown className="h-8 w-8 text-emerald-500/20" />
                           </div>
@@ -397,6 +402,54 @@ export default function ReportsPage() {
                         </CardContent>
                       </Card>
                     </div>
+                  )}
+
+                  {dailyReport.summary.target_weight && dailyReport.summary.target_date && dailyReport.summary.current_weight && (
+                    <Card className="bg-white/50 dark:bg-black/20 border-0">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="w-full">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-medium text-muted-foreground">Weight Goal</p>
+                              <TrendingUp className="h-5 w-5 text-violet-500/80" />
+                            </div>
+                            <p className="text-2xl font-bold">
+                              {dailyReport.summary.target_weight > dailyReport.summary.current_weight ? 'Gain ' : 'Lose '}
+                              {Math.abs(dailyReport.summary.target_weight - dailyReport.summary.current_weight).toFixed(1)} kg
+                            </p>
+                            
+                            {/* Progress bar */}
+                            <div className="mt-2 h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                              {(() => {
+                                // Calculate starting weight (could be higher or lower than target)
+                                const isWeightLoss = dailyReport.summary.target_weight < dailyReport.summary.current_weight;
+                                const startWeight = isWeightLoss ? dailyReport.summary.current_weight : dailyReport.summary.target_weight;
+                                const endWeight = isWeightLoss ? dailyReport.summary.target_weight : dailyReport.summary.current_weight;
+                                const weightDiff = Math.abs(startWeight - endWeight);
+                                
+                                // Calculate how much progress has been made
+                                const initialDiff = Math.abs(startWeight - (isWeightLoss ? startWeight : endWeight));
+                                const currentDiff = Math.abs(dailyReport.summary.current_weight - (isWeightLoss ? dailyReport.summary.target_weight : endWeight));
+                                const progress = weightDiff > 0 ? (initialDiff - currentDiff) / weightDiff * 100 : 0;
+                                
+                                return (
+                                  <div 
+                                    className={`h-full ${isWeightLoss ? 'bg-green-500' : 'bg-blue-500'}`}
+                                    style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+                                  ></div>
+                                );
+                              })()}
+                            </div>
+                            
+                            <div className="flex justify-between mt-1 text-xs text-muted-foreground">
+                              <span>Current: {dailyReport.summary.current_weight.toFixed(1)} kg</span>
+                              <span>{dailyReport.summary.days_until_target} days remaining</span>
+                              <span>Target: {dailyReport.summary.target_weight.toFixed(1)} kg</span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   )}
                 </CardContent>
               </Card>
