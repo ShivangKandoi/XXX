@@ -3,11 +3,12 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowRight, Activity, Utensils, Scale, TrendingUp } from 'lucide-react'
+import { ArrowRight, Activity, Utensils, Scale, TrendingUp, Flame } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { Suspense } from 'react'
 import { Database } from '@/types/supabase'
+import { calculateBMR, calculateTDEE, calculateNetCalories } from '@/lib/calories'
 
 // Separate component for stats to enable concurrent rendering
 async function StatsCards() {
@@ -18,7 +19,7 @@ async function StatsCards() {
   const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
   const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
 
-  const [mealsResponse, exercisesResponse, weightResponse] = await Promise.all([
+  const [mealsResponse, exercisesResponse, weightResponse, profileResponse] = await Promise.all([
     supabase
       .from('meals')
       .select('*')
@@ -37,17 +38,33 @@ async function StatsCards() {
       .gte('created_at', startOfDay.toISOString())
       .lt('created_at', endOfDay.toISOString())
       .order('created_at', { ascending: false })
-      .limit(1)
+      .limit(1),
+    supabase
+      .from('profiles')
+      .select('*')
+      .single()
   ])
 
   const todayMeals = mealsResponse.data || []
   const todayExercises = exercisesResponse.data || []
   const todayWeight = weightResponse.data || []
+  const profile = profileResponse.data || null
 
   // Calculate totals
   const totalCaloriesConsumed = todayMeals.reduce((sum, meal) => sum + (meal.calories || 0), 0)
   const totalCaloriesBurnt = todayExercises.reduce((sum, exercise) => sum + (exercise.calories_burnt || 0), 0)
-  const netCalories = totalCaloriesConsumed - totalCaloriesBurnt
+  const netCalories = calculateNetCalories(totalCaloriesConsumed, totalCaloriesBurnt)
+  
+  // Calculate BMR and TDEE if we have all the necessary data
+  let bmr = 0
+  let tdee = 0
+  let calorieDeficit = 0
+  
+  if (profile && profile.height && profile.age && profile.gender && profile.activity_level && todayWeight[0]) {
+    bmr = calculateBMR(todayWeight[0].weight, profile.height, profile.age, profile.gender)
+    tdee = calculateTDEE(bmr, profile.activity_level)
+    calorieDeficit = tdee - netCalories
+  }
 
   return (
     <div className="space-y-4">
@@ -76,36 +93,34 @@ async function StatsCards() {
           </div>
         </CardContent>
       </Card>
-
+      
       <Card className="bg-purple-50 dark:bg-purple-950/20 border-0 hover:bg-purple-100/50 transition-colors">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Net Calories</p>
               <p className="text-2xl font-bold">{netCalories}</p>
-              <p className="text-xs text-muted-foreground">
-                {netCalories > 0 ? 'Calorie surplus' : 'Calorie deficit'}
-              </p>
+              <p className="text-xs text-muted-foreground">Calories in - calories out</p>
             </div>
-            <TrendingUp className="h-5 w-5 text-purple-500" />
+            <Scale className="h-5 w-5 text-purple-500" />
           </div>
         </CardContent>
       </Card>
-
-      <Card className="bg-orange-50 dark:bg-orange-950/20 border-0 hover:bg-orange-100/50 transition-colors">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Current Weight</p>
-              <p className="text-2xl font-bold">{todayWeight[0]?.weight || 'N/A'} kg</p>
-              <p className="text-xs text-muted-foreground">
-                Last updated {todayWeight[0]?.created_at ? format(new Date(todayWeight[0].created_at), 'h:mm a') : 'N/A'}
-              </p>
+      
+      {tdee > 0 && (
+        <Card className="bg-orange-50 dark:bg-orange-950/20 border-0 hover:bg-orange-100/50 transition-colors">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Daily Calories Target</p>
+                <p className="text-2xl font-bold">{tdee}</p>
+                <p className="text-xs text-muted-foreground">Based on your profile & activity</p>
+              </div>
+              <Flame className="h-5 w-5 text-orange-500" />
             </div>
-            <Scale className="h-5 w-5 text-orange-500" />
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

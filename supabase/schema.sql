@@ -7,13 +7,28 @@ CREATE TABLE IF NOT EXISTS profiles (
     full_name TEXT,
     height DECIMAL,
     target_weight DECIMAL,
+    age INTEGER,
+    gender TEXT CHECK (gender IN ('male', 'female', 'other')),
+    activity_level TEXT CHECK (activity_level IN ('sedentary', 'light', 'moderate', 'active', 'very_active')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- Add description columns if they don't exist
+-- Add columns if they don't exist
 DO $$ 
 BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'age') THEN
+        ALTER TABLE profiles ADD COLUMN age INTEGER;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'gender') THEN
+        ALTER TABLE profiles ADD COLUMN gender TEXT CHECK (gender IN ('male', 'female', 'other'));
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'activity_level') THEN
+        ALTER TABLE profiles ADD COLUMN activity_level TEXT CHECK (activity_level IN ('sedentary', 'light', 'moderate', 'active', 'very_active'));
+    END IF;
+    
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'exercises' AND column_name = 'description') THEN
         ALTER TABLE exercises ADD COLUMN description TEXT;
     END IF;
@@ -31,10 +46,19 @@ CREATE TABLE IF NOT EXISTS exercises (
     description TEXT,
     calories_burnt INTEGER NOT NULL,
     duration INTEGER NOT NULL, -- in minutes
+    intensity TEXT CHECK (intensity IN ('low', 'moderate', 'high')),
     date TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
+
+-- Add intensity column if it doesn't exist
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'exercises' AND column_name = 'intensity') THEN
+        ALTER TABLE exercises ADD COLUMN intensity TEXT CHECK (intensity IN ('low', 'moderate', 'high'));
+    END IF;
+END $$;
 
 -- Create meals table if it doesn't exist
 CREATE TABLE IF NOT EXISTS meals (

@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { generateDailyReport, generateMonthlyReport } from '@/lib/gemini'
 import { format } from 'date-fns'
-import { Activity, Calendar, Flame, Scale, TrendingDown, TrendingUp, Utensils } from 'lucide-react'
+import { Activity, Calendar, Flame, Scale, TrendingDown, TrendingUp, Utensils, Battery, Target, LineChart, BadgePercent, Calculator } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -31,6 +31,10 @@ interface DailyReport {
     total_carbs: number
     total_fat: number
     total_exercise_duration: number
+    bmr: number
+    tdee: number
+    calorie_deficit: number
+    estimated_daily_weight_change: string
   }
   insights: Insight[]
   recommendations: Recommendation[]
@@ -60,6 +64,9 @@ interface MonthlyReport {
     weight_change: number
     most_common_meals: string[]
     most_common_exercises: string[]
+    theoretical_weight_change: number
+    accuracy_index: number
+    days_tracked: number
   }
   trends: Trend[]
   achievements: Achievement[]
@@ -71,6 +78,7 @@ export default function ReportsPage() {
   const [monthlyReport, setMonthlyReport] = useState<MonthlyReport | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('daily')
+  const [userProfile, setUserProfile] = useState<any>(null)
   
   const supabase = createClientComponentClient()
   const router = useRouter()
@@ -85,6 +93,15 @@ export default function ReportsPage() {
           router.push('/sign-in')
           return
         }
+
+        // Fetch user profile for accurate calculations
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+        
+        setUserProfile(profile)
 
         // Get today's data
         const today = new Date()
@@ -138,15 +155,6 @@ export default function ReportsPage() {
           .lt('created_at', endOfMonth.toISOString())
           .order('created_at', { ascending: true })
 
-        // Generate reports
-        const daily = await generateDailyReport({
-          meals: todayMeals || [],
-          exercises: todayExercises || [],
-          weight: todayWeight?.[0]
-        }) as DailyReport
-
-        setDailyReport(daily)
-
         // Group monthly data by day
         const dailyData = []
         const currentDate = new Date(startOfMonth)
@@ -177,11 +185,20 @@ export default function ReportsPage() {
           currentDate.setDate(currentDate.getDate() + 1)
         }
 
+        // Generate reports with profile data
+        const daily = await generateDailyReport({
+          meals: todayMeals || [],
+          exercises: todayExercises || [],
+          weight: todayWeight?.[0]
+        }, profile) as DailyReport
+
+        setDailyReport(daily)
+
         const monthly = await generateMonthlyReport({
           dailyData,
           startDate: startOfMonth.toISOString(),
           endDate: endOfMonth.toISOString()
-        }) as MonthlyReport
+        }, profile) as MonthlyReport
 
         setMonthlyReport(monthly)
       } catch (error) {
@@ -328,37 +345,100 @@ export default function ReportsPage() {
                       </CardContent>
                     </Card>
                   </div>
+
+                  {dailyReport.summary.tdee > 0 && (
+                    <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      <Card className="bg-white/50 dark:bg-black/20 border-0">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground">BMR</p>
+                              <p className="text-2xl font-bold">{dailyReport.summary.bmr}</p>
+                              <p className="text-xs text-muted-foreground">Resting energy</p>
+                            </div>
+                            <Battery className="h-8 w-8 text-teal-500/20" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-white/50 dark:bg-black/20 border-0">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground">TDEE</p>
+                              <p className="text-2xl font-bold">{dailyReport.summary.tdee}</p>
+                              <p className="text-xs text-muted-foreground">Daily calorie target</p>
+                            </div>
+                            <Target className="h-8 w-8 text-indigo-500/20" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-white/50 dark:bg-black/20 border-0">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground">Calorie Deficit</p>
+                              <p className="text-2xl font-bold">{dailyReport.summary.calorie_deficit}</p>
+                              <p className="text-xs text-muted-foreground">TDEE - Net calories</p>
+                            </div>
+                            <TrendingDown className="h-8 w-8 text-emerald-500/20" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-white/50 dark:bg-black/20 border-0">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground">Est. Weight Change</p>
+                              <p className="text-2xl font-bold">{dailyReport.summary.estimated_daily_weight_change}<span className="text-sm font-normal"> kg</span></p>
+                              <p className="text-xs text-muted-foreground">Based on calorie deficit</p>
+                            </div>
+                            <LineChart className="h-8 w-8 text-yellow-500/20" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
               <div className="grid gap-6 md:grid-cols-2">
                 <Card className="border-0 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50">
-                  <CardHeader>
+                  <CardHeader className="pb-3">
                     <div className="flex items-center space-x-2">
                       <TrendingUp className="h-5 w-5 text-blue-500" />
                       <CardTitle>Insights</CardTitle>
                     </div>
+                    <CardDescription>Analysis of your daily fitness data</CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-0">
                     <div className="space-y-4">
                       {dailyReport.insights.map((insight: Insight, index: number) => (
-                        <Card key={index} className={`overflow-hidden transition-all hover:shadow-md border-0 ${
+                        <Card key={index} className={`overflow-hidden transition-all hover:bg-opacity-80 border-l-4 ${
                           insight.severity === 'positive'
-                            ? 'bg-green-50/50 dark:bg-green-950/20'
+                            ? 'border-l-green-500 bg-gradient-to-r from-green-50/80 to-green-50/20 dark:from-green-950/30 dark:to-green-950/10'
                             : insight.severity === 'warning'
-                            ? 'bg-yellow-50/50 dark:bg-yellow-950/20'
-                            : 'bg-blue-50/50 dark:bg-blue-950/20'
+                            ? 'border-l-amber-500 bg-gradient-to-r from-amber-50/80 to-amber-50/20 dark:from-amber-950/30 dark:to-amber-950/10'
+                            : 'border-l-blue-500 bg-gradient-to-r from-blue-50/80 to-blue-50/20 dark:from-blue-950/30 dark:to-blue-950/10'
                         }`}>
                           <CardContent className="p-4">
                             <div className="flex items-start gap-3">
                               {insight.severity === 'positive' ? (
-                                <TrendingUp className="h-5 w-5 text-green-500 mt-0.5" />
+                                <div className="rounded-full bg-green-100 dark:bg-green-900/30 p-1.5 flex-shrink-0">
+                                  <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                </div>
                               ) : insight.severity === 'warning' ? (
-                                <TrendingDown className="h-5 w-5 text-yellow-500 mt-0.5" />
+                                <div className="rounded-full bg-amber-100 dark:bg-amber-900/30 p-1.5 flex-shrink-0">
+                                  <TrendingDown className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                                </div>
                               ) : (
-                                <Activity className="h-5 w-5 text-blue-500 mt-0.5" />
+                                <div className="rounded-full bg-blue-100 dark:bg-blue-900/30 p-1.5 flex-shrink-0">
+                                  <Activity className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                </div>
                               )}
-                              <p className="text-sm">{insight.message}</p>
+                              <div>
+                                <p className="text-sm leading-relaxed">{insight.message}</p>
+                                <p className="text-xs text-muted-foreground mt-1 capitalize">{insight.type}</p>
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
@@ -368,32 +448,56 @@ export default function ReportsPage() {
                 </Card>
 
                 <Card className="border-0 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/50 dark:to-pink-950/50">
-                  <CardHeader>
+                  <CardHeader className="pb-3">
                     <div className="flex items-center space-x-2">
                       <Activity className="h-5 w-5 text-purple-500" />
                       <CardTitle>Recommendations</CardTitle>
                     </div>
+                    <CardDescription>Suggestions to improve your fitness</CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-0">
                     <div className="space-y-4">
                       {dailyReport.recommendations.map((recommendation: Recommendation, index: number) => (
-                        <Card key={index} className={`overflow-hidden transition-all hover:shadow-md border-0 ${
+                        <Card key={index} className={`overflow-hidden transition-all hover:bg-opacity-80 border-l-4 ${
                           recommendation.priority === 'high'
-                            ? 'bg-red-50/50 dark:bg-red-950/20'
+                            ? 'border-l-red-500 bg-gradient-to-r from-red-50/80 to-red-50/20 dark:from-red-950/30 dark:to-red-950/10'
                             : recommendation.priority === 'medium'
-                            ? 'bg-yellow-50/50 dark:bg-yellow-950/20'
-                            : 'bg-purple-50/50 dark:bg-purple-950/20'
+                            ? 'border-l-amber-500 bg-gradient-to-r from-amber-50/80 to-amber-50/20 dark:from-amber-950/30 dark:to-amber-950/10'
+                            : 'border-l-purple-500 bg-gradient-to-r from-purple-50/80 to-purple-50/20 dark:from-purple-950/30 dark:to-purple-950/10'
                         }`}>
                           <CardContent className="p-4">
                             <div className="flex items-start gap-3">
-                              <Activity className={`h-5 w-5 mt-0.5 ${
+                              <div className={`rounded-full p-1.5 flex-shrink-0 ${
                                 recommendation.priority === 'high'
-                                  ? 'text-red-500'
+                                  ? 'bg-red-100 dark:bg-red-900/30'
                                   : recommendation.priority === 'medium'
-                                  ? 'text-yellow-500'
-                                  : 'text-purple-500'
-                              }`} />
-                              <p className="text-sm">{recommendation.suggestion}</p>
+                                  ? 'bg-amber-100 dark:bg-amber-900/30'
+                                  : 'bg-purple-100 dark:bg-purple-900/30'
+                              }`}>
+                                <Activity className={`h-4 w-4 ${
+                                  recommendation.priority === 'high'
+                                    ? 'text-red-600 dark:text-red-400'
+                                    : recommendation.priority === 'medium'
+                                    ? 'text-amber-600 dark:text-amber-400'
+                                    : 'text-purple-600 dark:text-purple-400'
+                                }`} />
+                              </div>
+                              <div>
+                                <p className="text-sm leading-relaxed">{recommendation.suggestion}</p>
+                                <div className="flex items-center mt-1.5">
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                    recommendation.priority === 'high'
+                                      ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
+                                      : recommendation.priority === 'medium'
+                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                                      : 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'
+                                  }`}>
+                                    {recommendation.priority} priority
+                                  </span>
+                                  <span className="mx-1.5 text-muted-foreground text-xs">•</span>
+                                  <span className="text-xs text-muted-foreground capitalize">{recommendation.category}</span>
+                                </div>
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
@@ -478,39 +582,87 @@ export default function ReportsPage() {
                       </CardContent>
                     </Card>
                   </div>
+
+                  {monthlyReport.summary.theoretical_weight_change !== undefined && (
+                    <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      <Card className="bg-white/50 dark:bg-black/20 border-0">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground">Theoretical Weight Change</p>
+                              <p className="text-2xl font-bold">{monthlyReport.summary.theoretical_weight_change.toFixed(2)}<span className="text-sm font-normal"> kg</span></p>
+                            </div>
+                            <Calculator className="h-8 w-8 text-amber-500/20" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card className="bg-white/50 dark:bg-black/20 border-0">
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground">Tracking Accuracy</p>
+                              <p className="text-2xl font-bold">{monthlyReport.summary.accuracy_index}%</p>
+                            </div>
+                            <BadgePercent className="h-8 w-8 text-violet-500/20" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
               <div className="grid gap-6 md:grid-cols-2">
                 <Card className="border-0 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/50 dark:to-emerald-950/50">
-                  <CardHeader>
+                  <CardHeader className="pb-3">
                     <div className="flex items-center space-x-2">
                       <TrendingUp className="h-5 w-5 text-green-500" />
                       <CardTitle>Trends</CardTitle>
                     </div>
+                    <CardDescription>Performance patterns over the month</CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-0">
                     <div className="space-y-4">
                       {monthlyReport.trends.map((trend: Trend, index: number) => (
-                        <Card key={index} className={`overflow-hidden transition-all hover:shadow-md border-0 ${
+                        <Card key={index} className={`overflow-hidden transition-all hover:bg-opacity-80 border-l-4 ${
                           trend.direction === 'improving'
-                            ? 'bg-green-50/50 dark:bg-green-950/20'
+                            ? 'border-l-green-500 bg-gradient-to-r from-green-50/80 to-green-50/20 dark:from-green-950/30 dark:to-green-950/10'
                             : trend.direction === 'declining'
-                            ? 'bg-red-50/50 dark:bg-red-950/20'
-                            : 'bg-blue-50/50 dark:bg-blue-950/20'
+                            ? 'border-l-red-500 bg-gradient-to-r from-red-50/80 to-red-50/20 dark:from-red-950/30 dark:to-red-950/10'
+                            : 'border-l-blue-500 bg-gradient-to-r from-blue-50/80 to-blue-50/20 dark:from-blue-950/30 dark:to-blue-950/10'
                         }`}>
                           <CardContent className="p-4">
                             <div className="flex items-start gap-3">
-                              {trend.direction === 'improving' ? (
-                                <TrendingUp className="h-5 w-5 text-green-500 mt-0.5" />
-                              ) : trend.direction === 'declining' ? (
-                                <TrendingDown className="h-5 w-5 text-red-500 mt-0.5" />
-                              ) : (
-                                <Activity className="h-5 w-5 text-blue-500 mt-0.5" />
-                              )}
+                              <div className={`rounded-full p-1.5 flex-shrink-0 ${
+                                trend.direction === 'improving'
+                                  ? 'bg-green-100 dark:bg-green-900/30'
+                                  : trend.direction === 'declining'
+                                  ? 'bg-red-100 dark:bg-red-900/30'
+                                  : 'bg-blue-100 dark:bg-blue-900/30'
+                              }`}>
+                                {trend.direction === 'improving' ? (
+                                  <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                ) : trend.direction === 'declining' ? (
+                                  <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
+                                ) : (
+                                  <Activity className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                )}
+                              </div>
                               <div>
                                 <p className="text-sm font-medium capitalize">{trend.type}</p>
-                                <p className="text-sm text-muted-foreground">{trend.description}</p>
+                                <p className="text-sm leading-relaxed mt-1 text-muted-foreground">{trend.description}</p>
+                                <div className="mt-2">
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                    trend.direction === 'improving'
+                                      ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                                      : trend.direction === 'declining'
+                                      ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
+                                      : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                                  }`}>
+                                    {trend.direction}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </CardContent>
@@ -521,34 +673,54 @@ export default function ReportsPage() {
                 </Card>
 
                 <Card className="border-0 bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-950/50 dark:to-sky-950/50">
-                  <CardHeader>
+                  <CardHeader className="pb-3">
                     <div className="flex items-center space-x-2">
                       <Activity className="h-5 w-5 text-blue-500" />
                       <CardTitle>Achievements</CardTitle>
                     </div>
+                    <CardDescription>Milestones reached this month</CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-0">
                     <div className="space-y-4">
                       {monthlyReport.achievements.map((achievement: Achievement, index: number) => (
-                        <Card key={index} className={`overflow-hidden transition-all hover:shadow-md border-0 ${
+                        <Card key={index} className={`overflow-hidden transition-all hover:bg-opacity-80 border-l-4 ${
                           achievement.significance === 'high'
-                            ? 'bg-purple-50/50 dark:bg-purple-950/20'
+                            ? 'border-l-purple-500 bg-gradient-to-r from-purple-50/80 to-purple-50/20 dark:from-purple-950/30 dark:to-purple-950/10'
                             : achievement.significance === 'medium'
-                            ? 'bg-blue-50/50 dark:bg-blue-950/20'
-                            : 'bg-green-50/50 dark:bg-green-950/20'
+                            ? 'border-l-blue-500 bg-gradient-to-r from-blue-50/80 to-blue-50/20 dark:from-blue-950/30 dark:to-blue-950/10'
+                            : 'border-l-green-500 bg-gradient-to-r from-green-50/80 to-green-50/20 dark:from-green-950/30 dark:to-green-950/10'
                         }`}>
                           <CardContent className="p-4">
                             <div className="flex items-start gap-3">
-                              <Activity className={`h-5 w-5 mt-0.5 ${
+                              <div className={`rounded-full p-1.5 flex-shrink-0 ${
                                 achievement.significance === 'high'
-                                  ? 'text-purple-500'
+                                  ? 'bg-purple-100 dark:bg-purple-900/30'
                                   : achievement.significance === 'medium'
-                                  ? 'text-blue-500'
-                                  : 'text-green-500'
-                              }`} />
+                                  ? 'bg-blue-100 dark:bg-blue-900/30'
+                                  : 'bg-green-100 dark:bg-green-900/30'
+                              }`}>
+                                <Activity className={`h-4 w-4 ${
+                                  achievement.significance === 'high'
+                                    ? 'text-purple-600 dark:text-purple-400'
+                                    : achievement.significance === 'medium'
+                                    ? 'text-blue-600 dark:text-blue-400'
+                                    : 'text-green-600 dark:text-green-400'
+                                }`} />
+                              </div>
                               <div>
-                                <p className="text-sm font-medium capitalize">{achievement.category}</p>
-                                <p className="text-sm text-muted-foreground">{achievement.description}</p>
+                                <div className="flex items-center mb-1">
+                                  <span className="text-sm font-medium capitalize mr-2">{achievement.category}</span>
+                                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                    achievement.significance === 'high'
+                                      ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'
+                                      : achievement.significance === 'medium'
+                                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                                      : 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                                  }`}>
+                                    {achievement.significance}
+                                  </span>
+                                </div>
+                                <p className="text-sm leading-relaxed text-muted-foreground">{achievement.description}</p>
                               </div>
                             </div>
                           </CardContent>

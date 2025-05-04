@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Database } from '@/types/supabase'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const formSchema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -24,6 +25,13 @@ const formSchema = z.object({
     const num = parseFloat(val)
     return !isNaN(num) && num > 0
   }, { message: 'Target weight must be a positive number' }),
+  age: z.string().refine((val) => {
+    if (!val) return true // Allow empty string
+    const num = parseInt(val)
+    return !isNaN(num) && num > 0 && num < 120
+  }, { message: 'Age must be a positive number less than 120' }),
+  gender: z.string().optional(),
+  activity_level: z.string().optional(),
 })
 
 type ProfileFormProps = {
@@ -31,6 +39,9 @@ type ProfileFormProps = {
     full_name: string | null
     height: number | null
     target_weight: number | null
+    age: number | null
+    gender: string | null
+    activity_level: string | null
   }
 }
 
@@ -46,6 +57,9 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
       full_name: '',
       height: '',
       target_weight: '',
+      age: '',
+      gender: '',
+      activity_level: '',
     },
   })
 
@@ -56,6 +70,9 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
         full_name: initialData.full_name || '',
         height: initialData.height?.toString() || '',
         target_weight: initialData.target_weight?.toString() || '',
+        age: initialData.age?.toString() || '',
+        gender: initialData.gender || '',
+        activity_level: initialData.activity_level || '',
       })
     }
   }, [form, initialData])
@@ -72,6 +89,7 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
       // Convert string values to numbers, null if empty
       const height = values.height ? parseFloat(values.height) : null
       const targetWeight = values.target_weight ? parseFloat(values.target_weight) : null
+      const age = values.age ? parseInt(values.age) : null
 
       const { error } = await supabase
         .from('profiles')
@@ -80,6 +98,9 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
           full_name: values.full_name || null,
           height,
           target_weight: targetWeight,
+          age,
+          gender: values.gender || null,
+          activity_level: values.activity_level || null,
           updated_at: new Date().toISOString()
         })
 
@@ -154,6 +175,70 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
                   value={field.value || ''} 
                 />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="age"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Age</FormLabel>
+              <FormControl>
+                <Input 
+                  type="number"
+                  placeholder="Enter your age" 
+                  {...field}
+                  value={field.value || ''} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="gender"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Gender</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your gender" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="activity_level"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Activity Level</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your activity level" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="sedentary">Sedentary (little or no exercise)</SelectItem>
+                  <SelectItem value="light">Light (light exercise 1-3 days/week)</SelectItem>
+                  <SelectItem value="moderate">Moderate (moderate exercise 3-5 days/week)</SelectItem>
+                  <SelectItem value="active">Active (hard exercise 6-7 days/week)</SelectItem>
+                  <SelectItem value="very_active">Very Active (very hard exercise & physical job)</SelectItem>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}

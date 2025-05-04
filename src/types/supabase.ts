@@ -15,6 +15,9 @@ export interface Database {
           full_name: string | null
           height: number | null
           target_weight: number | null
+          age: number | null
+          gender: string | null
+          activity_level: string | null
           created_at: string
           updated_at: string
         }
@@ -23,6 +26,9 @@ export interface Database {
           full_name?: string | null
           height?: number | null
           target_weight?: number | null
+          age?: number | null
+          gender?: string | null
+          activity_level?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -31,6 +37,9 @@ export interface Database {
           full_name?: string | null
           height?: number | null
           target_weight?: number | null
+          age?: number | null
+          gender?: string | null
+          activity_level?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -40,8 +49,10 @@ export interface Database {
           id: string
           user_id: string
           name: string
+          description: string | null
           calories_burnt: number
           duration: number
+          intensity: string | null
           date: string
           created_at: string
           updated_at: string
@@ -50,8 +61,10 @@ export interface Database {
           id?: string
           user_id: string
           name: string
+          description?: string | null
           calories_burnt: number
           duration: number
+          intensity?: string | null
           date?: string
           created_at?: string
           updated_at?: string
@@ -60,8 +73,10 @@ export interface Database {
           id?: string
           user_id?: string
           name?: string
+          description?: string | null
           calories_burnt?: number
           duration?: number
+          intensity?: string | null
           date?: string
           created_at?: string
           updated_at?: string
